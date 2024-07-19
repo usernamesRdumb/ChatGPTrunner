@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run from GPT cuz it sucks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #1a1a1a;
+            color: #fff;
+            padding-top: 50px;
+        }
+        #game-container {
+            width: 550px;
+            margin: auto;
+        }
+        .tile {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            border: 1px solid #fff;
+            background-color: #444;
+        }
+        #player {
+            background-color: #4CAF50;
+        }
+        .enemy {
+            background-color: #FF5733;
+        }
+        .barrier {
+            background-color: #222;
+        }
+        #level-complete {
+            display: none;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>ChatGPT is trying to kill you</h1>
+    <div id="game-container"></div>
+    <br>
+    <button onclick="startGame()" id="startButton">Start Game</button>
+    <button onclick="nextLevel()" id="nextLevelButton" style="display:none">Next Level</button>
+    <p id="timer">Time: 0</p>
+    <p id="level">Level: 1</p>
+    <p id="score">Score: 0</p>
+    <p id="level-complete">Level Complete! Press Next Level to Begin Next Level</p>
+
+    <script>
+        // Define map dimensions and player/enemy positions
+        const mapWidth = 22;
+        const mapHeight = 22;
+        let playerX = 11;
+        let playerY = 11;
+        let timerValue = 0;
+        let timerInterval;
+        let barriers = [];
+        let enemies = [];
+        let level = 1;
+        let score = 0;
+        let gameRunning = false;
+        let enemyInterval;
+
+        // Function to render the map
+        function renderMap() {
+            let gameContainer = document.getElementById("game-container");
+            gameContainer.innerHTML = "";
+
+            for (let y = 0; y < mapHeight; y++) {
+                for (let x = 0; x < mapWidth; x++) {
+                    let tile = document.createElement("div");
+                    tile.classList.add("tile");
+
+                    if (x === playerX && y === playerY) {
+                        tile.id = "player";
+                    } else if (isEnemy(x, y)) {
+                        tile.classList.add("enemy");
+                    } else if (isBarrier(x, y)) {
+                        tile.classList.add("barrier");
+                    }
+
+                    gameContainer.appendChild(tile);
+                }
+                gameContainer.appendChild(document.createElement("br"));
+            }
+        }
+
+        // Function to start the game
+        function startGame() {
+            if (gameRunning) return; // Game already running
+            
+            // Reset player position
+            playerX = 11;
+            playerY = 11;
+
+            // Reset timer
+            timerValue = 0;
+            updateTimerDisplay();
+
+            // Generate barriers and enemies for the current level
+            generateBarriers();
+            generateEnemies();
+
+            // Start timer interval
+            timerInterval = setInterval(updateTimer, 1000);
+
+            // Render map
+            renderMap();
+
+            // Start enemy movement
+            moveEnemy();
+            
+            // Disable start button
+            document.getElementById("startButton").disabled = true;
+            
+            // Set game running flag
+            gameRunning = true;
+        }
+
+        // Function to generate barriers
+        function generateBarriers() {
+            barriers = [];
+            for (let i = 0; i < level * 2 + 5; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * mapWidth);
+                    y = Math.floor(Math.random() * mapHeight);
+                } while (isPlayerOrEnemy(x, y) || isBarrier(x, y));
+                barriers.push({ x: x, y: y });
+            }
+        }
+
+        // Function to generate enemies
+        function generateEnemies() {
+            enemies = [];
+            for (let i = 0; i < level; i++) {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * mapWidth);
+                    y = Math.floor(Math.random() * mapHeight);
+                } while (isPlayerOrEnemy(x, y) || isBarrier(x, y));
+                enemies.push({ x: x, y: y });
+            }
+        }
+
+        // Function to check if a position is a barrier
+        function isBarrier(x, y) {
+            return barriers.some(barrier => barrier.x === x && barrier.y === y);
+        }
+
+        // Function to check if a position is occupied by the player or an enemy
+        function isPlayerOrEnemy(x, y) {
+            return (x === playerX && y === playerY) || isEnemy(x, y);
+        }
+
+        // Function to check if a position is occupied by an enemy
+        function isEnemy(x, y) {
+            return enemies.some(enemy => enemy.x === x && enemy.y === y);
+        }
+
+        // Function to handle keyboard input
+        document.addEventListener("keydown", function(event) {
+            if (!gameRunning) return; // Game not started yet
+
+            let keyPressed = event.key.toLowerCase();
+            let dx = 0;
+            let dy = 0;
+
+            switch (keyPressed) {
+                case "w":
+                    dy = -1;
+                    break;
+                case "s":
+                    dy = 1;
+                    break;
+                case "a":
+                    dx = -1;
+                    break;
+                case "d":
+                    dx = 1;
+                    break;
+            }
+
+            movePlayer(dx, dy);
+        });
+
+        // Function to move the player
+        function movePlayer(dx, dy) {
+            let newX = playerX + dx;
+            let newY = playerY + dy;
+
+            // Check if new position is within bounds and not a barrier
+            if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight && !isBarrier(newX, newY)) {
+                // Update player position
+                playerX = newX;
+                playerY = newY;
+
+                // Check if player has been caught by an enemy
+                if (isEnemy(playerX, playerY)) {
+                    gameOver();
+                    return;
+                }
+
+                // Check if player has completed the level
+                if (timerValue >= 10) {
+                    clearInterval(timerInterval);
+                    clearInterval(enemyInterval);
+                    document.getElementById("level-complete").style.display = "block";
+                    gameRunning = false;
+                    document.getElementById("nextLevelButton").style.display = "inline";
+                    return;
+                }
+
+                // Re-render map
+                renderMap();
+            }
+        }
+
+        // Function to move the enemy towards the player
+        function moveEnemy() {
+            enemyInterval = setInterval(() => {
+                // Calculate direction towards the player for each enemy
+                enemies.forEach(enemy => {
+                    let dx = playerX - enemy.x;
+                    let dy = playerY - enemy.y;
+
+                    // Move enemy closer to the player
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        enemy.x += Math.sign(dx);
+                    } else {
+                        enemy.y += Math.sign(dy);
+                    }
+
+                    // Check if enemy caught the player
+                    if (playerX === enemy.x && playerY === enemy.y) {
+                        gameOver();
+                        return;
+                    }
+                });
+
+                // Re-render map
+                renderMap();
+            }, 1000 - Math.min(950, timerValue * 10));
+        }
+
+        // Function to update the timer
+        function updateTimer() {
+            timerValue++;
+            updateTimerDisplay();
+        }
+
+        // Function to update the timer display
+        function updateTimerDisplay() {
+            document.getElementById("timer").textContent = "Time: " + timerValue + "s";
+        }
+
+        // Function to end the game
+        function gameOver() {
+            clearInterval(timerInterval);
+            clearInterval(enemyInterval);
+            alert("Game over! You were caught by an enemy. Final Score: " + score);
+            level = 1;
+            score = 0;
+            gameRunning = false;
+            document.getElementById("startButton").disabled = false;
+            document.getElementById("level-complete").style.display = "none";
+            document.getElementById("nextLevelButton").style.display = "none";
+        }
+
+        // Function to start the next level
+        function nextLevel() {
+            level++;
+            document.getElementById("level").textContent = "Level: " + level;
+            document.getElementById("startButton").disabled = true;
+            startGame();
+        }
+    </script>
+</body>
+</html>
